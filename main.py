@@ -3,7 +3,7 @@ import random
 import time
 import json
 from datetime import datetime
-from openai import OpenAI  # Requires openai>=1.14.0
+from openai import OpenAI
 from gtts import gTTS
 import moviepy.editor as mpy
 import google.auth
@@ -26,7 +26,7 @@ MAX_DURATION = 60  # 60 seconds for Shorts
 DAILY_UPLOADS = 10
 
 # Initialize OpenAI client SAFELY
-client = OpenAI(api_key=OPENAI_API_KEY)  # Fixed in openai>=1.14.0
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 def generate_script():
     prompt = """Roman Urdu mein exact 55 second ki horror story likho. Structure:
@@ -43,6 +43,12 @@ def generate_script():
     return response.choices[0].message.content
 
 def create_reel(script, part_num):
+    # Check if assets directories exist
+    if not os.path.exists(BG_VIDEOS) or not os.listdir(BG_VIDEOS):
+        raise FileNotFoundError(f"Background videos directory '{BG_VIDEOS}' is missing or empty")
+    if not os.path.exists(BG_MUSIC) or not os.listdir(BG_MUSIC):
+        raise FileNotFoundError(f"Background music directory '{BG_MUSIC}' is missing or empty")
+    
     # Random assets
     bg = random.choice(os.listdir(BG_VIDEOS))
     music = random.choice(os.listdir(BG_MUSIC))
@@ -59,12 +65,15 @@ def create_reel(script, part_num):
         # Video processing
         video = mpy.VideoFileClip(f"{BG_VIDEOS}/{bg}").subclip(0, MAX_DURATION)
         audio = mpy.AudioFileClip("voice.mp3").subclip(0, MAX_DURATION)
-        music = mpy.AudioFileClip(f"{BG_MUSIC}/{music}").volumex(0.3)
+        music_clip = mpy.AudioFileClip(f"{BG_MUSIC}/{music}").volumex(0.3)
         
         # Export
-        final = video.set_audio(mpy.CompositeAudioClip([audio, music]))
+        final = video.set_audio(mpy.CompositeAudioClip([audio, music_clip]))
         output_file = f"reel_{part_num}.mp4"
         final.write_videofile(output_file, fps=24, threads=4)
+    except Exception as e:
+        print(f"Video creation failed: {str(e)}")
+        return None
     finally:
         # Cleanup even if errors occur
         if os.path.exists("voice.mp3"):
@@ -73,6 +82,19 @@ def create_reel(script, part_num):
     return output_file
 
 def upload_to_yt(video_path, part_num):
+    # Check if video file exists
+    if not os.path.exists(video_path):
+        print(f"Video file {video_path} not found for upload")
+        return None
+
+    # Read hashtags from file
+    try:
+        with open("hashtags.txt", "r") as f:
+            hashtags = f.read()
+    except FileNotFoundError:
+        hashtags = "#Horror #RomanUrdu #Shorts #Viral #Gaming #Suspense #AIHorror #FollowForPart2"
+        print("hashtags.txt not found, using default hashtags")
+
     # Create credentials from JSON
     try:
         creds_info = json.loads(YOUTUBE_CREDS)
@@ -80,18 +102,21 @@ def upload_to_yt(video_path, part_num):
         
         youtube = build('youtube', 'v3', credentials=credentials)
         
+        # Insert the video
         request = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {
                     "title": f"Horror Part {part_num} | Roman Urdu",
-                    "description": open("hashtags.txt", "r").read(),
+                    "description": hashtags,
                     "categoryId": "24"
                 },
                 "status": {"privacyStatus": "public"}
             },
             media_body=MediaFileUpload(video_path)
-        return request.execute()['id']
+        )
+        response = request.execute()
+        return response['id']
     except Exception as e:
         print(f"YouTube upload failed: {str(e)}")
         return None
