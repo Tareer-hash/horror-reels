@@ -6,8 +6,9 @@ from datetime import datetime
 from openai import OpenAI
 from gtts import gTTS
 import moviepy.editor as mpy
-from moviepy.audio.fx import all as afx
-import google.auth
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -142,6 +143,42 @@ def create_reel(script, part_num):
     
     return output_file
 
+def get_authenticated_service():
+    """Get authenticated YouTube service"""
+    try:
+        # Parse the credentials from the environment variable
+        creds_info = json.loads(YOUTUBE_CREDS)
+        
+        # Check if we have OAuth 2.0 credentials
+        if 'installed' in creds_info or 'web' in creds_info:
+            # This is an OAuth 2.0 client ID file
+            flow = InstalledAppFlow.from_client_config(
+                creds_info,
+                scopes=['https://www.googleapis.com/auth/youtube.upload']
+            )
+            # For non-interactive environments, we need to use a different approach
+            # Since we can't do the interactive flow in GitHub Actions
+            print("OAuth 2.0 credentials detected. This requires interactive authentication.")
+            return None
+        elif 'type' in creds_info and creds_info['type'] == 'service_account':
+            # This is a service account file
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(
+                creds_info,
+                scopes=['https://www.googleapis.com/auth/youtube.upload']
+            )
+            return build('youtube', 'v3', credentials=credentials)
+        else:
+            # Assume it's a stored OAuth 2.0 token
+            credentials = Credentials.from_authorized_user_info(creds_info)
+            return build('youtube', 'v3', credentials=credentials)
+            
+    except Exception as e:
+        print(f"Authentication failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def upload_to_yt(video_path, part_num):
     print(f"Attempting to upload {video_path} to YouTube...")
     
@@ -150,12 +187,12 @@ def upload_to_yt(video_path, part_num):
         print(f"Error: Video file {video_path} does not exist")
         return None
     
-    # Create credentials from JSON
     try:
-        creds_info = json.loads(YOUTUBE_CREDS)
-        credentials = google.auth.credentials.Credentials.from_authorized_user_info(creds_info)
-        
-        youtube = build('youtube', 'v3', credentials=credentials)
+        # Get authenticated YouTube service
+        youtube = get_authenticated_service()
+        if not youtube:
+            print("Failed to authenticate with YouTube")
+            return None
         
         # Read hashtags
         try:
@@ -168,7 +205,7 @@ def upload_to_yt(video_path, part_num):
             part="snippet,status",
             body={
                 "snippet": {
-                    "title": f"Horror Part {part_num} | Roman Urdu",
+                    "title": f"Horror Part {part_num} | Roman Urdu | {datetime.now().strftime('%Y-%m-%d')}",
                     "description": hashtags,
                     "categoryId": "24",
                     "tags": ["horror", "story", "shorts", "roman urdu", "scary"]
