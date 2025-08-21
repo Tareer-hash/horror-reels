@@ -1,7 +1,12 @@
 openai>=1.14.0
 google-api-python-client
 gTTS
-moviepy
+moviepy==1.0.3
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
+imageio==2.9.0
+imageio-ffmpeg==0.4.5
+decorator==4.4.2
+tqdm==4.62.3
+numpy==1.21.6
