@@ -35,7 +35,7 @@ def generate_script():
     3. MUST END WITH: "Part 2 ke liye follow karo!" (10 sec)"""
     
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-3.5-turbo",  # Changed from gpt-4-turbo
         messages=[{"role": "user", "content": prompt}],
         temperature=0.9,
         max_tokens=300
@@ -43,12 +43,6 @@ def generate_script():
     return response.choices[0].message.content
 
 def create_reel(script, part_num):
-    # Check if assets directories exist
-    if not os.path.exists(BG_VIDEOS) or not os.listdir(BG_VIDEOS):
-        raise FileNotFoundError(f"Background videos directory '{BG_VIDEOS}' is missing or empty")
-    if not os.path.exists(BG_MUSIC) or not os.listdir(BG_MUSIC):
-        raise FileNotFoundError(f"Background music directory '{BG_MUSIC}' is missing or empty")
-    
     # Random assets
     bg = random.choice(os.listdir(BG_VIDEOS))
     music = random.choice(os.listdir(BG_MUSIC))
@@ -65,10 +59,10 @@ def create_reel(script, part_num):
         # Video processing
         video = mpy.VideoFileClip(f"{BG_VIDEOS}/{bg}").subclip(0, MAX_DURATION)
         audio = mpy.AudioFileClip("voice.mp3").subclip(0, MAX_DURATION)
-        music_clip = mpy.AudioFileClip(f"{BG_MUSIC}/{music}").volumex(0.3)
+        music = mpy.AudioFileClip(f"{BG_MUSIC}/{music}").volumex(0.3)
         
         # Export
-        final = video.set_audio(mpy.CompositeAudioClip([audio, music_clip]))
+        final = video.set_audio(mpy.CompositeAudioClip([audio, music]))
         output_file = f"reel_{part_num}.mp4"
         final.write_videofile(output_file, fps=24, threads=4)
     except Exception as e:
@@ -82,19 +76,6 @@ def create_reel(script, part_num):
     return output_file
 
 def upload_to_yt(video_path, part_num):
-    # Check if video file exists
-    if not os.path.exists(video_path):
-        print(f"Video file {video_path} not found for upload")
-        return None
-
-    # Read hashtags from file
-    try:
-        with open("hashtags.txt", "r") as f:
-            hashtags = f.read()
-    except FileNotFoundError:
-        hashtags = "#Horror #RomanUrdu #Shorts #Viral #Gaming #Suspense #AIHorror #FollowForPart2"
-        print("hashtags.txt not found, using default hashtags")
-
     # Create credentials from JSON
     try:
         creds_info = json.loads(YOUTUBE_CREDS)
@@ -102,21 +83,19 @@ def upload_to_yt(video_path, part_num):
         
         youtube = build('youtube', 'v3', credentials=credentials)
         
-        # Insert the video
         request = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {
                     "title": f"Horror Part {part_num} | Roman Urdu",
-                    "description": hashtags,
+                    "description": open("hashtags.txt", "r").read(),
                     "categoryId": "24"
                 },
                 "status": {"privacyStatus": "public"}
             },
             media_body=MediaFileUpload(video_path)
         )
-        response = request.execute()
-        return response['id']
+        return request.execute()['id']
     except Exception as e:
         print(f"YouTube upload failed: {str(e)}")
         return None
