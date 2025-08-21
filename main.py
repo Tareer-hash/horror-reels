@@ -5,7 +5,16 @@ import json
 from datetime import datetime
 from openai import OpenAI
 from gtts import gTTS
-import moviepy.editor as mpy
+
+# Try to import moviepy with error handling
+try:
+    import moviepy.editor as mpy
+    print("MoviePy imported successfully")
+except ImportError as e:
+    print(f"Error importing MoviePy: {e}")
+    print("Please make sure MoviePy is installed with: pip install moviepy")
+    exit(1)
+
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
