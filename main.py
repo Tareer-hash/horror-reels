@@ -27,31 +27,22 @@ if not YOUTUBE_CREDS:
 BG_VIDEOS = "assets/gaming_videos"
 BG_MUSIC = "assets/horror_music"
 MAX_DURATION = 60  # 60 seconds for Shorts
-DAILY_UPLOADS = 2  # Reduced for testing
+DAILY_UPLOADS = 1  # Reduced to just 1 for testing
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Pre-defined scripts to avoid OpenAI API calls
+PREDEFINED_SCRIPTS = [
+    "Raat ke andhere mein ek ajeeb si aawaz aati thi. Har koi dar ke mare soya rehta tha. Ek din ek ladke ne socha ki woh jaakar dekhega ke aawaz kahan se aa rahi hai. Jab woh pahucha to usne dekha... Part 2 ke liye follow karo!",
+    "Purani haveli mein ek bhoot rehta tha. Log use dekhkar dar jaate the. Ek din do dost ne socha ki woh haveli mein raat bitayenge. Raat ko jab woh so rahe the... Part 2 ke liye follow karo!",
+    "Jungle mein ek jadui jaga thi. Log kehte the wahan raat ko ajeeb harkatein hoti hain. Ek shikaari ne socha ki woh wahan jaakar dekhega. Jab woh pahucha to usne dekha... Part 2 ke liye follow karo!"
+]
+
 def generate_script():
-    print("Generating script with OpenAI...")
-    prompt = """Roman Urdu mein exact 55 second ki horror story likho. Structure:
-    1. Darawani shuruat (10 sec)
-    2. Suspense (35 sec) 
-    3. MUST END WITH: "Part 2 ke liye follow karo!" (10 sec)"""
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=300
-        )
-        script = response.choices[0].message.content
-        print(f"Script generated: {script[:100]}...")  # Show first 100 chars
-        return script
-    except Exception as e:
-        print(f"Error generating script: {str(e)}")
-        return None
+    print("Using predefined script to avoid API quota issues...")
+    # Return a random predefined script
+    return random.choice(PREDEFINED_SCRIPTS)
 
 def create_reel(script, part_num):
     print(f"Creating reel {part_num}...")
@@ -170,11 +161,6 @@ def main():
             # Cleanup
             if os.path.exists(video_file):
                 os.remove(video_file)
-                
-            # Wait between uploads
-            if i < DAILY_UPLOADS:
-                print("Waiting 5 minutes before next upload...")
-                time.sleep(300)  # 5-min gap between uploads
                 
         except Exception as e:
             print(f"Critical error in Part {i}: {str(e)}")
